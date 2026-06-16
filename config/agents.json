@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "defaultProfile": "codex-review",
+  "agents": {
+    "codex": {
+      "command": "codex",
+      "description": "OpenAI Codex CLI"
+    },
+    "opencode": {
+      "command": "opencode",
+      "description": "OpenCode CLI"
+    },
+    "commandcode": {
+      "command": "commandcode",
+      "description": "CommandCode CLI"
+    },
+    "claude": {
+      "command": "claude",
+      "description": "Claude Code CLI"
+    }
+  },
+  "profiles": {
+    "codex-review": {
+      "agent": "codex",
+      "role": "review",
+      "args": []
+    },
+    "codex-plan": {
+      "agent": "codex",
+      "role": "plan",
+      "args": []
+    },
+    "commandcode-plan": {
+      "agent": "commandcode",
+      "role": "plan",
+      "args": []
+    },
+    "commandcode-code": {
+      "agent": "commandcode",
+      "role": "code",
+      "args": []
+    },
+    "opencode-code": {
+      "agent": "opencode",
+      "role": "code",
+      "args": ["--model", "opencode-go/deepseek-v4-flash"]
+    },
+    "opencode-plan": {
+      "agent": "opencode",
+      "role": "plan",
+      "args": ["--model", "opencode-go/deepseek-v4-pro"]
+    },
+    "opencode-review": {
+      "agent": "opencode",
+      "role": "review",
+      "args": ["--model", "opencode-go/deepseek-v4-pro"]
+    },
+    "claude-code": {
+      "agent": "claude",
+      "role": "code",
+      "args": []
+    },
+    "claude-review": {
+      "agent": "claude",
+      "role": "review",
+      "args": []
+    }
+  }
+}
