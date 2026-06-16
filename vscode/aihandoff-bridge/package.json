@@ -1,0 +1,61 @@
+{
+  "name": "aihandoff-bridge",
+  "displayName": "AIHandOff Bridge",
+  "description": "Send AIHandOff continuation prompts into existing VS Code terminals.",
+  "version": "0.1.0",
+  "publisher": "aihandoff",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Chat",
+    "Other"
+  ],
+  "icon": "icon.svg",
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:aihandoff.continueExistingTerminal",
+    "onCommand:aihandoff.planWriteToHandoff",
+    "onCommand:aihandoff.sendToPlanTerminal",
+    "onCommand:aihandoff.codeWriteToHandoff",
+    "onCommand:aihandoff.sendToCodeTerminal",
+    "onCommand:aihandoff.reviewWriteFindings",
+    "onCommand:aihandoff.sendToReviewTerminal"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aihandoff.continueExistingTerminal",
+        "title": "AIHandOff: Continue In Existing Terminal"
+      },
+      {
+        "command": "aihandoff.planWriteToHandoff",
+        "title": "AIHandOff: Plan Write To Handoff"
+      },
+      {
+        "command": "aihandoff.sendToPlanTerminal",
+        "title": "AIHandOff: Send To Plan Terminal"
+      },
+      {
+        "command": "aihandoff.codeWriteToHandoff",
+        "title": "AIHandOff: Code Write To Handoff"
+      },
+      {
+        "command": "aihandoff.sendToCodeTerminal",
+        "title": "AIHandOff: Send To Code Terminal"
+      },
+      {
+        "command": "aihandoff.reviewWriteFindings",
+        "title": "AIHandOff: Review Write Findings"
+      },
+      {
+        "command": "aihandoff.sendToReviewTerminal",
+        "title": "AIHandOff: Send To Review Terminal"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node test/prompt-router.test.js"
+  }
+}

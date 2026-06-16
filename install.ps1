@@ -1,6 +1,7 @@
 param(
     [string] $WorkspaceRoot = (Get-Location).Path,
-    [switch] $SkipStarterFiles
+    [switch] $SkipStarterFiles,
+    [switch] $SkipBridge
 )
 
 Set-StrictMode -Version Latest
@@ -8,6 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 $KitRoot = Split-Path -Parent $PSCommandPath
 $Installer = Join-Path $KitRoot 'scripts\install-vscode-tasks.ps1'
+$BridgeInstaller = Join-Path $KitRoot 'scripts\install-vscode-bridge.ps1'
 
 if (-not (Test-Path -LiteralPath $Installer)) {
     throw "AIHandOff installer not found: $Installer"
@@ -16,6 +18,10 @@ if (-not (Test-Path -LiteralPath $Installer)) {
 $ResolvedWorkspace = (Resolve-Path -LiteralPath $WorkspaceRoot).Path
 
 & $Installer -WorkspaceRoot $ResolvedWorkspace
+
+if (-not $SkipBridge) {
+    & $BridgeInstaller
+}
 
 if (-not $SkipStarterFiles) {
     $HandoffDir = Join-Path $ResolvedWorkspace '.ai-handoff'
@@ -70,4 +76,5 @@ Write-Host 'AIHandOff is ready for this workspace.'
 Write-Host 'Next steps:'
 Write-Host '  1. Open VS Code in the target project.'
 Write-Host '  2. Run "AIHandOff: Start Plan", "AIHandOff: Start Code", or "AIHandOff: Start Review".'
-Write-Host '  3. Run "AIHandOff: Open Handoff" or "AIHandOff: Handoff Next" to inspect the local handoff state.'
+Write-Host '  3. Run "AIHandOff: Continue In Existing Terminal" to send the next prompt into an already-open terminal.'
+Write-Host '  4. Run "AIHandOff: Open Handoff" or "AIHandOff: Handoff Next" to inspect the local handoff state.'

@@ -30,6 +30,10 @@ function Get-PropertyValue {
         [string] $Name
     )
 
+    if (-not $Object -or -not $Object.PSObject.Properties[$Name]) {
+        return $null
+    }
+
     return $Object.PSObject.Properties[$Name].Value
 }
 
@@ -58,6 +62,10 @@ if ($List) {
     foreach ($profileName in $profiles.PSObject.Properties.Name) {
         $profileEntry = Get-PropertyValue -Object $profiles -Name $profileName
         $agent = Get-PropertyValue -Object $agents -Name $profileEntry.agent
+        if (-not $agent) {
+            Write-Output ("  {0} => <missing agent: {1}> [{2}]" -f $profileName, $profileEntry.agent, $profileEntry.role)
+            continue
+        }
         $profileArgs = @($profileEntry.args)
         Write-Output ("  {0} => {1} [{2}]" -f $profileName, (Join-CommandLine -Command $agent.command -CommandArgs $profileArgs), $profileEntry.role)
     }

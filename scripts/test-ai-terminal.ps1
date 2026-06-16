@@ -5,6 +5,7 @@ $KitRoot = Split-Path -Parent $PSScriptRoot
 $Launcher = Join-Path $PSScriptRoot 'ai-terminal.ps1'
 $Installer = Join-Path $PSScriptRoot 'install-vscode-tasks.ps1'
 $HandoffViewer = Join-Path $PSScriptRoot 'open-handoff.ps1'
+$BridgeTest = Join-Path $KitRoot 'vscode\aihandoff-bridge\test\prompt-router.test.js'
 $TempWorkspace = Join-Path ([System.IO.Path]::GetTempPath()) 'aihandoff-test-workspace'
 
 function Assert-Equal {
@@ -63,9 +64,9 @@ Set-Content -Path (Join-Path $TempWorkspace '.vscode\tasks.json') -Value $existi
 
 $list = & $Launcher -List
 $listText = $list -join "`n"
-Assert-Match $listText 'codex-review\s+=>\s+codex' 'Profile list should include codex-review.'
-Assert-Match $listText 'opencode-code\s+=>\s+opencode --model opencode-go/deepseek-v4-flash' 'Profile list should include opencode-code.'
+Assert-Match $listText 'opencode-plan\s+=>\s+opencode --model opencode-go/deepseek-v4-pro' 'Profile list should include opencode-plan.'
 Assert-Match $listText 'opencode-review\s+=>\s+opencode --model opencode-go/deepseek-v4-pro' 'Profile list should include opencode-review.'
+Assert-Match $listText 'opencode-code\s+=>\s+opencode --model opencode-go/deepseek-v4-flash' 'Profile list should include opencode-code.'
 Assert-Match $listText 'claude-review\s+=>\s+claude' 'Profile list should include claude-review.'
 
 $codeCommand = & $Launcher -Profile opencode-code -PrintCommand
@@ -74,10 +75,22 @@ Assert-Equal $codeCommand 'opencode --model opencode-go/deepseek-v4-flash' 'open
 $reviewCommand = & $Launcher -Profile opencode-review -PrintCommand
 Assert-Equal $reviewCommand 'opencode --model opencode-go/deepseek-v4-pro' 'opencode-review should print command and model args.'
 
+$missingProfileError = $null
+try {
+    & $Launcher -Profile does-not-exist -PrintCommand 2>$null
+} catch {
+    $missingProfileError = $_.Exception.Message
+}
+Assert-Match $missingProfileError "Unknown AI profile 'does-not-exist'" 'Launcher should report unknown profiles clearly.'
+
+node $BridgeTest
+
 & $Installer -WorkspaceRoot $TempWorkspace
 $tasksPath = Join-Path $TempWorkspace '.vscode\tasks.json'
+$extensionsPath = Join-Path $TempWorkspace '.vscode\extensions.json'
 $tasks = Get-Content -Raw $tasksPath | ConvertFrom-Json
 $taskText = Get-Content -Raw $tasksPath
+$extensionsText = Get-Content -Raw $extensionsPath
 if (-not (Test-Path -LiteralPath (Join-Path $TempWorkspace '.ai-handoff'))) {
     throw 'Assertion failed: Installer should create the .ai-handoff directory.'
 }
@@ -98,6 +111,7 @@ Assert-Match $taskText 'AIHandOff: Open Handoff' 'Installed tasks should include
 Assert-Match $taskText 'AIHandOff: Handoff Next' 'Installed tasks should include handoff next task.'
 Assert-Match $taskText '"inputs": \[' 'Installed tasks should keep prompt inputs as a JSON array.'
 Assert-Match $taskText '"id": "aiProfile"' 'Installed tasks should keep the aiProfile prompt input.'
+Assert-Match $extensionsText 'aihandoff.aihandoff-bridge' 'Installer should recommend the AIHandOff VS Code bridge extension.'
 
 Set-Content -Path (Join-Path $TempWorkspace '.ai-handoff\state.json') -Value '{ "phase": "review_done" }' -Encoding utf8
 Set-Content -Path (Join-Path $TempWorkspace '.ai-handoff\plan.md') -Value "# Demo plan" -Encoding utf8
@@ -105,6 +119,8 @@ Set-Content -Path (Join-Path $TempWorkspace '.ai-handoff\plan.md') -Value "# Dem
 $handoffOutput = & $HandoffViewer -WorkspaceRoot $TempWorkspace
 $handoffText = $handoffOutput -join "`n"
 Assert-Match $handoffText 'AIHandOff context for' 'Handoff viewer should show workspace heading.'
+Assert-Match $handoffText 'Phase: review_done' 'Handoff viewer should show the current phase.'
+Assert-Match $handoffText 'Consider updating state to approved' 'Handoff viewer should suggest the next action.'
 Assert-Match $handoffText 'state.json' 'Handoff viewer should include state file.'
 Assert-Match $handoffText 'phase' 'Handoff viewer should print state contents.'
 Assert-Match $handoffText 'plan.md' 'Handoff viewer should include plan file.'

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "defaultProfile": "codex-review",
+  "defaultProfile": "opencode-review",
   "agents": {
     "codex": {
       "command": "codex",

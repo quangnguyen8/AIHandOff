@@ -11,6 +11,7 @@ $TestScript = Join-Path $PSScriptRoot 'test-ai-terminal.ps1'
 $ResolvedWorkspace = (Resolve-Path -LiteralPath $WorkspaceRoot).Path
 $VscodeDir = Join-Path $ResolvedWorkspace '.vscode'
 $TasksPath = Join-Path $VscodeDir 'tasks.json'
+$ExtensionsPath = Join-Path $VscodeDir 'extensions.json'
 $ProjectHandoffTest = Join-Path $ResolvedWorkspace 'scripts\test-ai-loop.ps1'
 
 function New-EmptyDocument {
@@ -38,11 +39,31 @@ New-Item -ItemType Directory -Path $VscodeDir -Force | Out-Null
 $HandoffDir = Join-Path $ResolvedWorkspace '.ai-handoff'
 New-Item -ItemType Directory -Path $HandoffDir -Force | Out-Null
 
+$extensionsDocument = [ordered]@{
+    recommendations = @('aihandoff.aihandoff-bridge')
+}
+
+if (Test-Path -LiteralPath $ExtensionsPath) {
+    try {
+        $existingExtensions = Get-Content -Raw $ExtensionsPath | ConvertFrom-Json
+        $existingRecommendations = Get-Value -Object $existingExtensions -Name 'recommendations'
+        if ($existingRecommendations) {
+            $extensionsDocument.recommendations = @(
+                @($existingRecommendations) + @('aihandoff.aihandoff-bridge') | Select-Object -Unique
+            )
+        }
+    } catch {
+        $extensionsDocument = [ordered]@{
+            recommendations = @('aihandoff.aihandoff-bridge')
+        }
+    }
+}
+
 $managedInput = [ordered]@{
     id = 'aiProfile'
     type = 'promptString'
     description = 'AIHandOff profile name'
-    default = 'codex-review'
+    default = 'opencode-review'
 }
 
 $managedTasks = @(
@@ -55,7 +76,7 @@ $managedTasks = @(
             '-File',
             $Launcher,
             '-Profile',
-            'codex-plan',
+            'opencode-plan',
             '-WorkspaceRoot',
             '${workspaceFolder}'
         )
@@ -89,7 +110,7 @@ $managedTasks = @(
             '-File',
             $Launcher,
             '-Profile',
-            'codex-review',
+            'opencode-review',
             '-WorkspaceRoot',
             '${workspaceFolder}'
         )
@@ -226,5 +247,8 @@ $document.tasks = @($existingTasks + $managedTasks)
 $json = $document | ConvertTo-Json -Depth 8
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 [System.IO.File]::WriteAllText($TasksPath, $json + [Environment]::NewLine, $utf8NoBom)
+
+$extensionsJson = $extensionsDocument | ConvertTo-Json -Depth 4
+[System.IO.File]::WriteAllText($ExtensionsPath, $extensionsJson + [Environment]::NewLine, $utf8NoBom)
 
 Write-Host "Installed AIHandOff VS Code tasks to $TasksPath"
