@@ -1,0 +1,3 @@
+- Read the latest plan and review findings before changing code.
+- Keep the diff focused on the requested outcome.
+- Record what changed, what was verified, and what remains risky.

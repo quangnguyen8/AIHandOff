@@ -1,3 +1,5 @@
+const { resolveSkillPacks } = require('./skill-resolver');
+
 function normalizePhase(value) {
   return String(value || 'idle').trim().toLowerCase().replace(/-/g, '_');
 }
@@ -28,25 +30,34 @@ function terminalCandidatesForRole(role) {
   return candidates[role] || [];
 }
 
-function buildRolePrompt(role, language) {
+function buildRoleObjective(role, phase, language) {
   const lang = language === 'vi' ? 'vi' : 'en';
 
-  const prompts = {
+  const objectives = {
     en: {
       plan: [
-        'AIHandOff continue:',
         'Read the project context and write the next concrete plan to .ai-handoff/plan.md.',
         'Then update .ai-handoff/state.json to planned.'
       ].join(' '),
-      code: [
-        'AIHandOff continue:',
+      code_planned: [
+        'Read .ai-handoff/state.json, .ai-handoff/plan.md, and .ai-handoff/review-findings.md.',
+        'Continue the implementation.',
+        'Write the result to .ai-handoff/execution-result.md,',
+        'then update .ai-handoff/state.json to code_done.'
+      ].join(' '),
+      code_review_findings: [
+        'Read .ai-handoff/state.json, .ai-handoff/plan.md, and .ai-handoff/review-findings.md.',
+        'Continue the implementation or fix the review findings.',
+        'Write the result to .ai-handoff/fix-result.md,',
+        'then update .ai-handoff/state.json to fix_done.'
+      ].join(' '),
+      code_default: [
         'Read .ai-handoff/state.json, .ai-handoff/plan.md, and .ai-handoff/review-findings.md.',
         'Continue the implementation or fix the review findings.',
         'Write the result to .ai-handoff/execution-result.md or .ai-handoff/fix-result.md,',
         'then update .ai-handoff/state.json to code_done or fix_done.'
       ].join(' '),
       review: [
-        'AIHandOff continue:',
         'Read .ai-handoff/state.json, .ai-handoff/plan.md, .ai-handoff/execution-result.md, and git diff.',
         'Review the current work, write findings to .ai-handoff/review-findings.md,',
         'then update .ai-handoff/state.json to approved when clean or review_findings when fixes are needed.'
@@ -54,19 +65,28 @@ function buildRolePrompt(role, language) {
     },
     vi: {
       plan: [
-        'AIHandOff tiếp tục:',
         'Đọc ngữ cảnh dự án và viết kế hoạch cụ thể vào .ai-handoff/plan.md.',
         'Sau đó cập nhật .ai-handoff/state.json thành planned.'
       ].join(' '),
-      code: [
-        'AIHandOff tiếp tục:',
+      code_planned: [
+        'Đọc .ai-handoff/state.json, .ai-handoff/plan.md, và .ai-handoff/review-findings.md.',
+        'Tiếp tục triển khai.',
+        'Ghi kết quả vào .ai-handoff/execution-result.md,',
+        'sau đó cập nhật .ai-handoff/state.json thành code_done.'
+      ].join(' '),
+      code_review_findings: [
+        'Đọc .ai-handoff/state.json, .ai-handoff/plan.md, và .ai-handoff/review-findings.md.',
+        'Tiếp tục triển khai hoặc sửa các lỗi từ review.',
+        'Ghi kết quả vào .ai-handoff/fix-result.md,',
+        'sau đó cập nhật .ai-handoff/state.json thành fix_done.'
+      ].join(' '),
+      code_default: [
         'Đọc .ai-handoff/state.json, .ai-handoff/plan.md, và .ai-handoff/review-findings.md.',
         'Tiếp tục triển khai hoặc sửa các lỗi từ review.',
         'Ghi kết quả vào .ai-handoff/execution-result.md hoặc .ai-handoff/fix-result.md,',
         'sau đó cập nhật .ai-handoff/state.json thành code_done hoặc fix_done.'
       ].join(' '),
       review: [
-        'AIHandOff tiếp tục:',
         'Đọc .ai-handoff/state.json, .ai-handoff/plan.md, .ai-handoff/execution-result.md, và git diff.',
         'Review công việc hiện tại, ghi nhận xét vào .ai-handoff/review-findings.md,',
         'sau đó cập nhật .ai-handoff/state.json thành approved nếu ổn hoặc review_findings nếu cần sửa.'
@@ -74,18 +94,73 @@ function buildRolePrompt(role, language) {
     }
   };
 
-  const rolePrompts = prompts[lang];
-  if (rolePrompts && rolePrompts[role]) {
-    return rolePrompts[role];
+  const roleObjectives = objectives[lang];
+  if (!roleObjectives) {
+    return '';
   }
 
-  return lang === 'vi'
-    ? 'AIHandOff tiếp tục: không có hành động nào cho trạng thái hiện tại.'
-    : 'AIHandOff continue: no action is required for the current handoff state.';
+  if (role === 'code') {
+    const phaseKey = normalizePhase(phase);
+    if (phaseKey === 'planned') {
+      return roleObjectives.code_planned;
+    }
+
+    if (phaseKey === 'review_findings' || phaseKey === 'fix_requested') {
+      return roleObjectives.code_review_findings;
+    }
+
+    return roleObjectives.code_default;
+  }
+
+  return roleObjectives[role] || '';
 }
 
-function buildRoleSpec(role, language) {
+function inferAgentFromProfile(profile) {
+  const normalizedProfile = String(profile || '').trim().toLowerCase();
+  if (!normalizedProfile.includes('-')) {
+    return '';
+  }
+
+  return normalizedProfile.split('-')[0];
+}
+
+function renderPromptEnvelope(context) {
+  const lang = context.language === 'vi' ? 'vi' : 'en';
+  const none = lang === 'vi' ? '(không có)' : '(none)';
+  const baseline = context.skills.baseline.length > 0 ? context.skills.baseline.join('\n- ') : none;
+  const injected = context.skills.injected.length > 0 ? context.skills.injected.join('\n- ') : none;
+  const instructionBody = context.skills.sections.length > 0 ? context.skills.sections.join('\n\n') : none;
+  const prelude = lang === 'vi' ? 'AIHandOff tiếp tục:' : 'AIHandOff continue:';
+
+  return [
+    `${prelude}`,
+    '[AIHANDOFF CONTEXT]',
+    `workspace=${context.workspaceRoot || '.'}`,
+    `agent=${context.agent || ''}`,
+    `profile=${context.profile || ''}`,
+    `role=${context.role || ''}`,
+    `phase=${context.phase || ''}`,
+    '',
+    '[AIHANDOFF OBJECTIVE]',
+    context.objective,
+    '',
+    '[AIHANDOFF SKILLS]',
+    'Baseline:',
+    baseline === none ? none : `- ${baseline}`,
+    '',
+    'Injected:',
+    injected === none ? none : `- ${injected}`,
+    '',
+    '[AIHANDOFF INSTRUCTIONS]',
+    instructionBody
+  ].join('\n');
+}
+
+function buildRoleSpec(role, language, options) {
   const normalizedRole = String(role || '').trim().toLowerCase();
+  const normalizedPhase = normalizePhase(options && options.phase ? options.phase : 'idle');
+  const profile = (options && options.profile) || '';
+  const agent = (options && options.agent) || inferAgentFromProfile(profile);
   const commandTitles = {
     plan: 'AIHandOff: Plan Write To Handoff',
     code: 'AIHandOff: Code Write To Handoff',
@@ -96,13 +171,31 @@ function buildRoleSpec(role, language) {
     code: ['aihandoff.codeWriteToHandoff', 'aihandoff.sendToCodeTerminal'],
     review: ['aihandoff.reviewWriteFindings', 'aihandoff.sendToReviewTerminal']
   };
+  const skills = resolveSkillPacks({
+    role: normalizedRole,
+    phase: normalizedPhase,
+    profile,
+    agent,
+    skillContext: options && options.skillContext
+  });
 
   return {
     role: normalizedRole,
     commandTitle: commandTitles[normalizedRole] || null,
     commandIds: commandIds[normalizedRole] || [],
-    prompt: buildRolePrompt(normalizedRole, language),
-    terminalCandidates: terminalCandidatesForRole(normalizedRole)
+    startTaskTitle: `AIHandOff: Start ${normalizedRole.charAt(0).toUpperCase()}${normalizedRole.slice(1)}`,
+    terminalCandidates: terminalCandidatesForRole(normalizedRole),
+    skills,
+    prompt: renderPromptEnvelope({
+      language,
+      workspaceRoot: options && options.workspaceRoot,
+      agent,
+      profile,
+      role: normalizedRole,
+      phase: normalizedPhase,
+      objective: buildRoleObjective(normalizedRole, normalizedPhase, language),
+      skills
+    })
   };
 }
 
@@ -127,7 +220,7 @@ function roleForPhase(phase) {
   }
 }
 
-function buildContinuation(state, forcedRole, language) {
+function buildContinuation(state, forcedRole, language, options) {
   const phase = (state && state.phase) || 'idle';
   const targetRole = forcedRole || roleForPhase(phase);
   if (!targetRole) {
@@ -140,12 +233,20 @@ function buildContinuation(state, forcedRole, language) {
     };
   }
 
-  const spec = buildRoleSpec(targetRole, language);
+  const spec = buildRoleSpec(targetRole, language, {
+    phase,
+    profile: options && options.profile,
+    agent: options && options.agent,
+    workspaceRoot: options && options.workspaceRoot,
+    skillContext: options && options.skillContext
+  });
   return {
     targetRole,
     prompt: spec.prompt,
+    skills: spec.skills,
     terminalCandidates: spec.terminalCandidates,
-    commandTitle: spec.commandTitle
+    commandTitle: spec.commandTitle,
+    startTaskTitle: spec.startTaskTitle
   };
 }
 

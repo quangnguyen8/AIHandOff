@@ -1,0 +1,10 @@
+{
+  "id": "plan-from-context",
+  "mode": "injected",
+  "priority": 300,
+  "appliesTo": {
+    "role": ["plan"],
+    "phase": ["idle", "new", "planning"]
+  },
+  "files": ["system.md"]
+}

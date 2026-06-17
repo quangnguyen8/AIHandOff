@@ -1,0 +1,10 @@
+{
+  "id": "codex-code-deep",
+  "mode": "baseline",
+  "priority": 200,
+  "appliesTo": {
+    "agent": ["codex"],
+    "role": ["code"]
+  },
+  "files": ["system.md"]
+}

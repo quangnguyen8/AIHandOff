@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "packs": [
+    "packs/plan-baseline",
+    "packs/code-baseline",
+    "packs/review-baseline",
+    "packs/opencode-code-fast",
+    "packs/opencode-review-fast",
+    "packs/codex-code-deep",
+    "packs/codex-review-deep",
+    "packs/implementation-from-plan",
+    "packs/fix-from-review",
+    "packs/plan-from-context",
+    "packs/review-regression-check"
+  ]
+}

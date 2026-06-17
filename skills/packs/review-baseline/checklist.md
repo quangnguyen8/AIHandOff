@@ -1,0 +1,3 @@
+- Read the handoff artifacts and current diff first.
+- Prefer behavioral bugs, contract breaks, and missing tests over style nits.
+- State approval only when no material issues remain.

@@ -1,5 +1,6 @@
 param(
     [string] $WorkspaceRoot = (Get-Location).Path,
+    [string] $ConfigPath,
     [ValidateSet('en', 'vi', '')]
     [string] $Language = ''
 )
@@ -10,6 +11,8 @@ $ErrorActionPreference = 'Stop'
 $Launcher = Join-Path $PSScriptRoot 'ai-terminal.ps1'
 $HandoffViewer = Join-Path $PSScriptRoot 'open-handoff.ps1'
 $TestScript = Join-Path $PSScriptRoot 'test-ai-terminal.ps1'
+$KitRoot = Split-Path -Parent $PSScriptRoot
+$DefaultConfigPath = Join-Path $KitRoot 'config\agents.json'
 $ResolvedWorkspace = (Resolve-Path -LiteralPath $WorkspaceRoot).Path
 $VscodeDir = Join-Path $ResolvedWorkspace '.vscode'
 $TasksPath = Join-Path $VscodeDir 'tasks.json'
@@ -37,6 +40,73 @@ function Get-Value {
 
     return $Object.PSObject.Properties[$Name].Value
 }
+
+function Resolve-RoleProfiles {
+    param(
+        [string] $ResolvedConfigPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ResolvedConfigPath)) {
+        throw "AIHandOff config not found: $ResolvedConfigPath"
+    }
+
+    $config = Get-Content -Raw $ResolvedConfigPath | ConvertFrom-Json
+    $profiles = $config.profiles
+    $defaultProfileName = [string] (Get-Value -Object $config -Name 'defaultProfile')
+    $defaultProfile = $null
+    if (-not [string]::IsNullOrWhiteSpace($defaultProfileName)) {
+        $defaultProfile = Get-Value -Object $profiles -Name $defaultProfileName
+    }
+
+    $preferredAgent = ''
+    if ($defaultProfile) {
+        $preferredAgent = [string] $defaultProfile.agent
+    }
+
+    $resolved = [ordered]@{}
+    foreach ($role in @('plan', 'code', 'review')) {
+        $match = $null
+
+        if (-not [string]::IsNullOrWhiteSpace($preferredAgent)) {
+            foreach ($profileName in $profiles.PSObject.Properties.Name) {
+                $candidate = Get-Value -Object $profiles -Name $profileName
+                if ($candidate -and [string] $candidate.role -eq $role -and [string] $candidate.agent -eq $preferredAgent) {
+                    $match = $profileName
+                    break
+                }
+            }
+        }
+
+        if (-not $match) {
+            foreach ($profileName in $profiles.PSObject.Properties.Name) {
+                $candidate = Get-Value -Object $profiles -Name $profileName
+                if ($candidate -and [string] $candidate.role -eq $role) {
+                    $match = $profileName
+                    break
+                }
+            }
+        }
+
+        if (-not $match) {
+            throw "AIHandOff config '$ResolvedConfigPath' does not define a profile for role '$role'."
+        }
+
+        $resolved[$role] = $match
+    }
+
+    return [ordered]@{
+        defaultProfile = $(if (-not [string]::IsNullOrWhiteSpace($defaultProfileName)) { $defaultProfileName } else { [string] $resolved.review })
+        profiles = $resolved
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = $DefaultConfigPath
+}
+
+$roleProfileConfig = Resolve-RoleProfiles -ResolvedConfigPath $ConfigPath
+$roleProfiles = $roleProfileConfig.profiles
+$defaultProfileName = [string] $roleProfileConfig.defaultProfile
 
 New-Item -ItemType Directory -Path $VscodeDir -Force | Out-Null
 $HandoffDir = Join-Path $ResolvedWorkspace '.ai-handoff'
@@ -66,7 +136,7 @@ $managedInput = [ordered]@{
     id = 'aiProfile'
     type = 'promptString'
     description = 'AIHandOff profile name'
-    default = 'opencode-review'
+    default = $defaultProfileName
 }
 
 $managedTasks = @(
@@ -79,9 +149,11 @@ $managedTasks = @(
             '-File',
             $Launcher,
             '-Profile',
-            'opencode-plan',
+            [string] $roleProfiles.plan,
             '-WorkspaceRoot',
-            '${workspaceFolder}'
+            '${workspaceFolder}',
+            '-ConfigPath',
+            $ConfigPath
         )
         options = [ordered]@{ cwd = '${workspaceFolder}' }
         presentation = [ordered]@{ panel = 'dedicated'; reveal = 'always'; focus = $true; clear = $true }
@@ -96,9 +168,11 @@ $managedTasks = @(
             '-File',
             $Launcher,
             '-Profile',
-            'opencode-code',
+            [string] $roleProfiles.code,
             '-WorkspaceRoot',
-            '${workspaceFolder}'
+            '${workspaceFolder}',
+            '-ConfigPath',
+            $ConfigPath
         )
         options = [ordered]@{ cwd = '${workspaceFolder}' }
         presentation = [ordered]@{ panel = 'dedicated'; reveal = 'always'; focus = $true; clear = $true }
@@ -113,9 +187,11 @@ $managedTasks = @(
             '-File',
             $Launcher,
             '-Profile',
-            'opencode-review',
+            [string] $roleProfiles.review,
             '-WorkspaceRoot',
-            '${workspaceFolder}'
+            '${workspaceFolder}',
+            '-ConfigPath',
+            $ConfigPath
         )
         options = [ordered]@{ cwd = '${workspaceFolder}' }
         presentation = [ordered]@{ panel = 'dedicated'; reveal = 'always'; focus = $true; clear = $true }
@@ -132,7 +208,9 @@ $managedTasks = @(
             '-Profile',
             '${input:aiProfile}',
             '-WorkspaceRoot',
-            '${workspaceFolder}'
+            '${workspaceFolder}',
+            '-ConfigPath',
+            $ConfigPath
         )
         options = [ordered]@{ cwd = '${workspaceFolder}' }
         presentation = [ordered]@{ panel = 'dedicated'; reveal = 'always'; focus = $true; clear = $true }
@@ -254,19 +332,32 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $extensionsJson = $extensionsDocument | ConvertTo-Json -Depth 4
 [System.IO.File]::WriteAllText($ExtensionsPath, $extensionsJson + [Environment]::NewLine, $utf8NoBom)
 
-if ($Language -eq 'vi' -or $Language -eq 'en') {
-    $settingsDoc = [ordered]@{}
-    if (Test-Path -LiteralPath $SettingsPath) {
-        try {
-            $settingsDoc = Get-Content -Raw $SettingsPath | ConvertFrom-Json -AsHashtable
-        } catch {
-            $settingsDoc = [ordered]@{}
-        }
+$settingsDoc = [ordered]@{}
+if (Test-Path -LiteralPath $SettingsPath) {
+    try {
+        $settingsDoc = Get-Content -Raw $SettingsPath | ConvertFrom-Json -AsHashtable
+    } catch {
+        $settingsDoc = [ordered]@{}
     }
+}
+
+if ($Language -eq 'vi' -or $Language -eq 'en') {
     $settingsDoc['aihandoff.language'] = $Language
-    $settingsJson = $settingsDoc | ConvertTo-Json -Depth 4
-    [System.IO.File]::WriteAllText($SettingsPath, $settingsJson + [Environment]::NewLine, $utf8NoBom)
+}
+
+$settingsDoc['aihandoff.kitRoot'] = $KitRoot
+$settingsDoc['aihandoff.autoOpenMissingTerminal'] = $false
+$settingsDoc['aihandoff.roleProfiles'] = [ordered]@{
+    plan = [string] $roleProfiles.plan
+    code = [string] $roleProfiles.code
+    review = [string] $roleProfiles.review
+}
+$settingsJson = $settingsDoc | ConvertTo-Json -Depth 6
+[System.IO.File]::WriteAllText($SettingsPath, $settingsJson + [Environment]::NewLine, $utf8NoBom)
+
+if ($Language -eq 'vi' -or $Language -eq 'en') {
     Write-Host "Set aihandoff.language = $Language in $SettingsPath"
 }
+Write-Host "Set aihandoff.kitRoot and roleProfiles in $SettingsPath"
 
 Write-Host "Installed AIHandOff VS Code tasks to $TasksPath"

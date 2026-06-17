@@ -1,0 +1,10 @@
+{
+  "id": "codex-review-deep",
+  "mode": "baseline",
+  "priority": 200,
+  "appliesTo": {
+    "agent": ["codex"],
+    "role": ["review"]
+  },
+  "files": ["system.md"]
+}

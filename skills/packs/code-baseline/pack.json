@@ -1,0 +1,9 @@
+{
+  "id": "code-baseline",
+  "mode": "baseline",
+  "priority": 100,
+  "appliesTo": {
+    "role": ["code"]
+  },
+  "files": ["system.md", "checklist.md", "handoff.md"]
+}

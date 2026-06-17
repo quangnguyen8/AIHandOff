@@ -1,0 +1,3 @@
+- Confirm the current phase and the next expected phase.
+- Keep the plan scoped to the current change.
+- Name the files, commands, or verification points that matter.

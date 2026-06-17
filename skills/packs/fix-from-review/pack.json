@@ -1,0 +1,10 @@
+{
+  "id": "fix-from-review",
+  "mode": "injected",
+  "priority": 300,
+  "appliesTo": {
+    "role": ["code"],
+    "phase": ["review_findings", "fix_requested"]
+  },
+  "files": ["system.md", "handoff.md"]
+}

@@ -7,6 +7,7 @@ $Installer = Join-Path $PSScriptRoot 'install-vscode-tasks.ps1'
 $HandoffViewer = Join-Path $PSScriptRoot 'open-handoff.ps1'
 $BridgeTest = Join-Path $KitRoot 'vscode\aihandoff-bridge\test\prompt-router.test.js'
 $TempWorkspace = Join-Path ([System.IO.Path]::GetTempPath()) 'aihandoff-test-workspace'
+$TempConfigPath = Join-Path $TempWorkspace 'custom-agents.json'
 
 function Assert-Equal {
     param(
@@ -62,6 +63,24 @@ $existingTasks = @'
 '@
 Set-Content -Path (Join-Path $TempWorkspace '.vscode\tasks.json') -Value $existingTasks -Encoding utf8
 
+$customConfig = @'
+{
+  "version": "1.0.2",
+  "language": "en",
+  "defaultProfile": "codex-review",
+  "agents": {
+    "codex": { "command": "codex", "description": "OpenAI Codex CLI" },
+    "claude": { "command": "claude", "description": "Claude Code CLI" }
+  },
+  "profiles": {
+    "codex-review": { "agent": "codex", "role": "review", "args": [] },
+    "codex-plan": { "agent": "codex", "role": "plan", "args": [] },
+    "claude-code": { "agent": "claude", "role": "code", "args": [] }
+  }
+}
+'@
+Set-Content -Path $TempConfigPath -Value $customConfig -Encoding utf8
+
 $list = & $Launcher -List
 $listText = $list -join "`n"
 Assert-Match $listText 'opencode-plan\s+=>\s+opencode --model opencode-go/deepseek-v4-pro' 'Profile list should include opencode-plan.'
@@ -85,12 +104,14 @@ Assert-Match $missingProfileError "Unknown AI profile 'does-not-exist'" 'Launche
 
 node $BridgeTest
 
-& $Installer -WorkspaceRoot $TempWorkspace
+& $Installer -WorkspaceRoot $TempWorkspace -ConfigPath $TempConfigPath
 $tasksPath = Join-Path $TempWorkspace '.vscode\tasks.json'
 $extensionsPath = Join-Path $TempWorkspace '.vscode\extensions.json'
+$settingsPath = Join-Path $TempWorkspace '.vscode\settings.json'
 $tasks = Get-Content -Raw $tasksPath | ConvertFrom-Json
 $taskText = Get-Content -Raw $tasksPath
 $extensionsText = Get-Content -Raw $extensionsPath
+$settingsText = Get-Content -Raw $settingsPath
 if (-not (Test-Path -LiteralPath (Join-Path $TempWorkspace '.ai-handoff'))) {
     throw 'Assertion failed: Installer should create the .ai-handoff directory.'
 }
@@ -101,6 +122,9 @@ if ($taskText -match '"label": "AI: Launch Profile"') {
 Assert-Match $taskText 'AIHandOff: Start Plan' 'Installed tasks should include plan shortcut.'
 Assert-Match $taskText 'AIHandOff: Start Code' 'Installed tasks should include code shortcut.'
 Assert-Match $taskText 'AIHandOff: Start Review' 'Installed tasks should include review shortcut.'
+Assert-Match $taskText 'codex-plan' 'Plan task should use the resolved plan profile from config.'
+Assert-Match $taskText 'claude-code' 'Code task should use the resolved code profile from config.'
+Assert-Match $taskText 'codex-review' 'Review task should use the resolved review profile from config.'
 Assert-Equal (
     ($tasks.tasks | Where-Object { $_.label -eq 'AIHandOff: Launch Profile' } | Select-Object -First 1).args[2]
 ) $Launcher 'Installed launch task should point to the central launcher.'
@@ -112,6 +136,9 @@ Assert-Match $taskText 'AIHandOff: Handoff Next' 'Installed tasks should include
 Assert-Match $taskText '"inputs": \[' 'Installed tasks should keep prompt inputs as a JSON array.'
 Assert-Match $taskText '"id": "aiProfile"' 'Installed tasks should keep the aiProfile prompt input.'
 Assert-Match $extensionsText 'aihandoff.aihandoff-bridge' 'Installer should recommend the AIHandOff VS Code bridge extension.'
+Assert-Match $settingsText '"plan":\s*"codex-plan"' 'Settings should store the resolved plan profile.'
+Assert-Match $settingsText '"code":\s*"claude-code"' 'Settings should store the resolved code profile.'
+Assert-Match $settingsText '"review":\s*"codex-review"' 'Settings should store the resolved review profile.'
 
 Set-Content -Path (Join-Path $TempWorkspace '.ai-handoff\state.json') -Value '{ "phase": "review_done" }' -Encoding utf8
 Set-Content -Path (Join-Path $TempWorkspace '.ai-handoff\plan.md') -Value "# Demo plan" -Encoding utf8

@@ -1,0 +1,9 @@
+{
+  "id": "review-baseline",
+  "mode": "baseline",
+  "priority": 100,
+  "appliesTo": {
+    "role": ["review"]
+  },
+  "files": ["system.md", "checklist.md", "handoff.md"]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "plan-baseline",
+  "mode": "baseline",
+  "priority": 100,
+  "appliesTo": {
+    "role": ["plan"]
+  },
+  "files": ["system.md", "checklist.md", "handoff.md"]
+}

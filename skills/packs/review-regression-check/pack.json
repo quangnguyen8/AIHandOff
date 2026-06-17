@@ -1,0 +1,10 @@
+{
+  "id": "review-regression-check",
+  "mode": "injected",
+  "priority": 300,
+  "appliesTo": {
+    "role": ["review"],
+    "phase": ["code_done", "fix_done"]
+  },
+  "files": ["system.md"]
+}

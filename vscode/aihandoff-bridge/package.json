@@ -2,7 +2,7 @@
   "name": "aihandoff-bridge",
   "displayName": "AIHandOff Bridge",
   "description": "Send AIHandOff continuation prompts into existing VS Code terminals.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "aihandoff",
   "engines": {
     "vscode": "^1.85.0"
@@ -36,6 +36,25 @@
             "Tiếng Việt cho AI agents"
           ],
           "description": "Language for AIHandOff prompts sent to AI terminals"
+        },
+        "aihandoff.kitRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the central AIHandOff kit so the bridge can load shared skill packs"
+        },
+        "aihandoff.autoOpenMissingTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically run the matching AIHandOff Start task when a required terminal is missing"
+        },
+        "aihandoff.roleProfiles": {
+          "type": "object",
+          "default": {
+            "plan": "opencode-plan",
+            "code": "opencode-code",
+            "review": "opencode-review"
+          },
+          "description": "Default profile names for plan, code, and review terminals so AIHandOff can apply agent-aware skill packs"
         }
       }
     },
@@ -71,6 +90,6 @@
     ]
   },
   "scripts": {
-    "test": "node test/prompt-router.test.js"
+    "test": "node test/prompt-router.test.js && node test/terminal-role.test.js"
   }
 }

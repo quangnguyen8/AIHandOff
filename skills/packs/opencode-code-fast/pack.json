@@ -1,0 +1,10 @@
+{
+  "id": "opencode-code-fast",
+  "mode": "baseline",
+  "priority": 200,
+  "appliesTo": {
+    "agent": ["opencode"],
+    "role": ["code"]
+  },
+  "files": ["system.md"]
+}

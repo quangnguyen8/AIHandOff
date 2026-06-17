@@ -10,6 +10,7 @@ AIHandOff turns ad-hoc AI CLI sessions into a repeatable plan -> code -> review 
 - Per-project `.ai-handoff/` state so every workspace keeps its own plan, execution notes, review findings, and fix result.
 - VS Code tasks for starting plan, code, and review terminals with consistent names.
 - A tiny bridge extension that routes the next prompt to the already-open terminal for the right role.
+- Shared skill packs that augment each terminal by role, phase, and agent profile.
 - No server, database, or cloud dependency. It is just PowerShell, VS Code tasks, and local files.
 
 ## What this is
@@ -161,6 +162,46 @@ AIHandOff: Review Write Findings
 `AIHandOff: Review Write Findings` sends the review terminal a prompt that tells it to write findings into `.ai-handoff/review-findings.md`.
 
 Use this when you want to keep one code session and one review session alive across multiple handoff rounds. The bridge does not replace the running CLI session; it just feeds the next prompt into the existing terminal so the agent keeps its local context.
+
+## Skill orchestration
+
+AIHandOff can augment prompts with shared skill packs before they reach a terminal.
+
+- `baseline` packs apply by `role` and optionally by `agent`
+- `injected` packs apply by current handoff `phase`
+- prompt envelopes include context, objective, active skills, and rendered instructions
+- `AIHandOff: Start Plan`, `Start Code`, and `Start Review` now bootstrap the opening terminal with the matching role prompt automatically
+
+The central skill registry lives under `skills/`:
+
+```text
+skills/
+  registry.json
+  packs/
+    code-baseline/
+    review-baseline/
+    implementation-from-plan/
+    fix-from-review/
+    ...
+```
+
+The VS Code bridge stores these settings in each installed workspace:
+
+```json
+{
+  "aihandoff.kitRoot": "D:\\PRIVATE\\AIHandOff",
+  "aihandoff.roleProfiles": {
+    "plan": "opencode-plan",
+    "code": "opencode-code",
+    "review": "opencode-review"
+  },
+  "aihandoff.autoOpenMissingTerminal": false
+}
+```
+
+The installer derives `aihandoff.roleProfiles` from `config/agents.json` instead of hardcoding one agent family, so bridge routing and skill selection stay aligned with the actual task profiles for that workspace.
+
+If you set `aihandoff.autoOpenMissingTerminal` to `true`, bridge commands can run the matching `AIHandOff: Start ...` task automatically when the target terminal is missing, then send the augmented prompt once the terminal appears.
 
 Expected phase routing:
 

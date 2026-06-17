@@ -1,5 +1,9 @@
 const assert = require('assert');
+const path = require('path');
 const { buildContinuation, buildRoleSpec } = require('../src/prompt-router');
+
+const kitRoot = path.resolve(__dirname, '..', '..', '..');
+const skillContext = { kitRoot };
 
 function includesAll(text, parts) {
   for (const part of parts) {
@@ -14,6 +18,62 @@ function includesAll(text, parts) {
     '.ai-handoff/state.json',
     '.ai-handoff/review-findings.md',
     'git diff'
+  ]);
+}
+
+{
+  const result = buildRoleSpec('code', 'en', {
+    phase: 'planned',
+    profile: 'opencode-code',
+    agent: 'opencode',
+    skillContext
+  });
+  assert.deepStrictEqual(result.skills.baseline, [
+    'code-baseline',
+    'opencode-code-fast'
+  ]);
+  assert.deepStrictEqual(result.skills.injected, [
+    'implementation-from-plan'
+  ]);
+  includesAll(result.prompt, [
+    '[AIHANDOFF CONTEXT]',
+    'profile=opencode-code',
+    '[AIHANDOFF SKILLS]',
+    'Baseline:',
+    'code-baseline',
+    'opencode-code-fast',
+    'Injected:',
+    'implementation-from-plan',
+    'Use the approved handoff plan as the source of truth.',
+    'Implement only what is needed to satisfy the current handoff plan.',
+    'Before ending your turn, verify the changed path in the fastest reliable way.'
+  ]);
+}
+
+{
+  const result = buildContinuation(
+    { phase: 'review_findings' },
+    null,
+    'en',
+    {
+      profile: 'opencode-code',
+      agent: 'opencode',
+      skillContext
+    }
+  );
+  assert.strictEqual(result.targetRole, 'code');
+  assert.deepStrictEqual(result.skills.baseline, [
+    'code-baseline',
+    'opencode-code-fast'
+  ]);
+  assert.deepStrictEqual(result.skills.injected, [
+    'fix-from-review'
+  ]);
+  includesAll(result.prompt, [
+    'phase=review_findings',
+    'fix-from-review',
+    'Read review-findings.md before touching code.',
+    'Capture what you changed and why in fix-result.md.'
   ]);
 }
 

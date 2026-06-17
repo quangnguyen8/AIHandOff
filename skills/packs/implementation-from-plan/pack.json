@@ -1,0 +1,10 @@
+{
+  "id": "implementation-from-plan",
+  "mode": "injected",
+  "priority": 300,
+  "appliesTo": {
+    "role": ["code"],
+    "phase": ["planned"]
+  },
+  "files": ["system.md"]
+}
