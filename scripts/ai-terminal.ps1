@@ -4,6 +4,8 @@ param(
     [switch] $PrintCommand,
     [string] $WorkspaceRoot,
     [string] $ConfigPath,
+    [ValidateSet('en', 'vi', '')]
+    [string] $Language = '',
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]] $AgentArgs
 )
@@ -23,6 +25,14 @@ if (-not (Test-Path -LiteralPath $ConfigPath)) {
 $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
 $agents = $config.agents
 $profiles = $config.profiles
+
+if ([string]::IsNullOrWhiteSpace($Language)) {
+    if ($config.PSObject.Properties['language']) {
+        $Language = [string] $config.language
+    } else {
+        $Language = 'en'
+    }
+}
 
 function Get-PropertyValue {
     param(
@@ -105,6 +115,11 @@ if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
     Set-Location -LiteralPath $WorkspaceRoot
 }
 
-Write-Host ("Starting profile {0}: {1}" -f $Profile, (Join-CommandLine -Command $command -CommandArgs $allArgs))
-Write-Host ("Workspace: {0}" -f (Get-Location))
+if ($Language -eq 'vi') {
+    Write-Host ("Đang khởi động profile {0}: {1}" -f $Profile, (Join-CommandLine -Command $command -CommandArgs $allArgs))
+    Write-Host ("Workspace: {0}" -f (Get-Location))
+} else {
+    Write-Host ("Starting profile {0}: {1}" -f $Profile, (Join-CommandLine -Command $command -CommandArgs $allArgs))
+    Write-Host ("Workspace: {0}" -f (Get-Location))
+}
 & $command @allArgs

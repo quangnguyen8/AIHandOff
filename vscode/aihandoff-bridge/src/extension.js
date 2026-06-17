@@ -12,6 +12,10 @@ function getWorkspaceRoot() {
   return folder.uri.fsPath;
 }
 
+function getLanguage() {
+  return vscode.workspace.getConfiguration('aihandoff').get('language', 'vi');
+}
+
 function readState(workspaceRoot) {
   const statePath = path.join(workspaceRoot, '.ai-handoff', 'state.json');
   if (!fs.existsSync(statePath)) {
@@ -38,7 +42,7 @@ async function sendContinuation(forcedRole) {
   try {
     const workspaceRoot = getWorkspaceRoot();
     const state = readState(workspaceRoot);
-    const continuation = buildContinuation(state, forcedRole);
+    const continuation = buildContinuation(state, forcedRole, getLanguage());
 
     if (!continuation.targetRole) {
       vscode.window.showInformationMessage(continuation.prompt);
@@ -63,7 +67,7 @@ async function sendContinuation(forcedRole) {
 
 async function sendRole(role) {
   try {
-    const spec = buildRoleSpec(role);
+    const spec = buildRoleSpec(role, getLanguage());
     if (!spec.commandTitle) {
       vscode.window.showErrorMessage(`AIHandOff bridge does not know role '${role}'.`);
       return;

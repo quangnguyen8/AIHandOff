@@ -2,7 +2,7 @@
   "name": "aihandoff-bridge",
   "displayName": "AIHandOff Bridge",
   "description": "Send AIHandOff continuation prompts into existing VS Code terminals.",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "publisher": "aihandoff",
   "engines": {
     "vscode": "^1.85.0"
@@ -24,6 +24,21 @@
   ],
   "main": "./src/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "AIHandOff",
+      "properties": {
+        "aihandoff.language": {
+          "type": "string",
+          "default": "en",
+          "enum": ["en", "vi"],
+          "enumDescriptions": [
+            "English prompts for AI agents",
+            "Tiếng Việt cho AI agents"
+          ],
+          "description": "Language for AIHandOff prompts sent to AI terminals"
+        }
+      }
+    },
     "commands": [
       {
         "command": "aihandoff.continueExistingTerminal",

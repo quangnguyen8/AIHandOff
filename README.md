@@ -67,6 +67,12 @@ If you only want the shortest path:
 
 ## One-liner install
 
+To install with Vietnamese prompts:
+
+```powershell
+pwsh -NoProfile -File C:\path\to\AIHandOff\install.ps1 -WorkspaceRoot . -Language vi
+```
+
 If you already have the repo cloned locally and want to attach it to the current project folder, run the installer from the cloned AIHandOff repo:
 
 ```powershell
@@ -84,6 +90,28 @@ If you prefer a single command that clones and installs in one pass:
 ```powershell
 git clone https://github.com/quangnguyen8/AIHandOff.git $env:TEMP\AIHandOff; pwsh -NoProfile -File $env:TEMP\AIHandOff\install.ps1 -WorkspaceRoot C:\path\to\your-project
 ```
+
+## Language support
+
+AIHandOff supports English (`en`) and Vietnamese (`vi`) for prompts sent to AI terminals.
+
+Set the language in `config/agents.json`:
+
+```json
+{
+  "version": 1,
+  "language": "vi",
+  ...
+}
+```
+
+Or per-workspace via VS Code setting `aihandoff.language`. The installer accepts `-Language vi` to auto-configure:
+
+```powershell
+pwsh -NoProfile -File .\install.ps1 -WorkspaceRoot . -Language vi
+```
+
+When set to `vi`, all bridge prompts and CLI output messages use Vietnamese so your AI terminal conversations stay in the language you choose.
 
 ## Central config
 

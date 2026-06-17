@@ -28,38 +28,63 @@ function terminalCandidatesForRole(role) {
   return candidates[role] || [];
 }
 
-function buildRolePrompt(role) {
-  if (role === 'review') {
-    return [
-      'AIHandOff continue:',
-      'Read .ai-handoff/state.json, .ai-handoff/plan.md, .ai-handoff/execution-result.md, and git diff.',
-      'Review the current work, write findings to .ai-handoff/review-findings.md,',
-      'then update .ai-handoff/state.json to approved when clean or review_findings when fixes are needed.'
-    ].join(' ');
+function buildRolePrompt(role, language) {
+  const lang = language === 'vi' ? 'vi' : 'en';
+
+  const prompts = {
+    en: {
+      plan: [
+        'AIHandOff continue:',
+        'Read the project context and write the next concrete plan to .ai-handoff/plan.md.',
+        'Then update .ai-handoff/state.json to planned.'
+      ].join(' '),
+      code: [
+        'AIHandOff continue:',
+        'Read .ai-handoff/state.json, .ai-handoff/plan.md, and .ai-handoff/review-findings.md.',
+        'Continue the implementation or fix the review findings.',
+        'Write the result to .ai-handoff/execution-result.md or .ai-handoff/fix-result.md,',
+        'then update .ai-handoff/state.json to code_done or fix_done.'
+      ].join(' '),
+      review: [
+        'AIHandOff continue:',
+        'Read .ai-handoff/state.json, .ai-handoff/plan.md, .ai-handoff/execution-result.md, and git diff.',
+        'Review the current work, write findings to .ai-handoff/review-findings.md,',
+        'then update .ai-handoff/state.json to approved when clean or review_findings when fixes are needed.'
+      ].join(' ')
+    },
+    vi: {
+      plan: [
+        'AIHandOff tiếp tục:',
+        'Đọc ngữ cảnh dự án và viết kế hoạch cụ thể vào .ai-handoff/plan.md.',
+        'Sau đó cập nhật .ai-handoff/state.json thành planned.'
+      ].join(' '),
+      code: [
+        'AIHandOff tiếp tục:',
+        'Đọc .ai-handoff/state.json, .ai-handoff/plan.md, và .ai-handoff/review-findings.md.',
+        'Tiếp tục triển khai hoặc sửa các lỗi từ review.',
+        'Ghi kết quả vào .ai-handoff/execution-result.md hoặc .ai-handoff/fix-result.md,',
+        'sau đó cập nhật .ai-handoff/state.json thành code_done hoặc fix_done.'
+      ].join(' '),
+      review: [
+        'AIHandOff tiếp tục:',
+        'Đọc .ai-handoff/state.json, .ai-handoff/plan.md, .ai-handoff/execution-result.md, và git diff.',
+        'Review công việc hiện tại, ghi nhận xét vào .ai-handoff/review-findings.md,',
+        'sau đó cập nhật .ai-handoff/state.json thành approved nếu ổn hoặc review_findings nếu cần sửa.'
+      ].join(' ')
+    }
+  };
+
+  const rolePrompts = prompts[lang];
+  if (rolePrompts && rolePrompts[role]) {
+    return rolePrompts[role];
   }
 
-  if (role === 'code') {
-    return [
-      'AIHandOff continue:',
-      'Read .ai-handoff/state.json, .ai-handoff/plan.md, and .ai-handoff/review-findings.md.',
-      'Continue the implementation or fix the review findings.',
-      'Write the result to .ai-handoff/execution-result.md or .ai-handoff/fix-result.md,',
-      'then update .ai-handoff/state.json to code_done or fix_done.'
-    ].join(' ');
-  }
-
-  if (role === 'plan') {
-    return [
-      'AIHandOff continue:',
-      'Read the project context and write the next concrete plan to .ai-handoff/plan.md.',
-      'Then update .ai-handoff/state.json to planned.'
-    ].join(' ');
-  }
-
-  return 'AIHandOff continue: no action is required for the current handoff state.';
+  return lang === 'vi'
+    ? 'AIHandOff tiếp tục: không có hành động nào cho trạng thái hiện tại.'
+    : 'AIHandOff continue: no action is required for the current handoff state.';
 }
 
-function buildRoleSpec(role) {
+function buildRoleSpec(role, language) {
   const normalizedRole = String(role || '').trim().toLowerCase();
   const commandTitles = {
     plan: 'AIHandOff: Plan Write To Handoff',
@@ -76,7 +101,7 @@ function buildRoleSpec(role) {
     role: normalizedRole,
     commandTitle: commandTitles[normalizedRole] || null,
     commandIds: commandIds[normalizedRole] || [],
-    prompt: buildRolePrompt(normalizedRole),
+    prompt: buildRolePrompt(normalizedRole, language),
     terminalCandidates: terminalCandidatesForRole(normalizedRole)
   };
 }
@@ -102,17 +127,20 @@ function roleForPhase(phase) {
   }
 }
 
-function buildContinuation(state, forcedRole) {
+function buildContinuation(state, forcedRole, language) {
   const phase = (state && state.phase) || 'idle';
   const targetRole = forcedRole || roleForPhase(phase);
   if (!targetRole) {
+    const lang = (language === 'vi') ? 'vi' : 'en';
     return {
       targetRole: null,
-      prompt: 'AIHandOff continue: this handoff is already approved or has no automatic next role.'
+      prompt: lang === 'vi'
+        ? 'AIHandOff tiếp tục: handoff này đã được approved hoặc không có role tự động tiếp theo.'
+        : 'AIHandOff continue: this handoff is already approved or has no automatic next role.'
     };
   }
 
-  const spec = buildRoleSpec(targetRole);
+  const spec = buildRoleSpec(targetRole, language);
   return {
     targetRole,
     prompt: spec.prompt,

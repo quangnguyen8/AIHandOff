@@ -1,5 +1,7 @@
 param(
-    [string] $WorkspaceRoot = (Get-Location).Path
+    [string] $WorkspaceRoot = (Get-Location).Path,
+    [ValidateSet('en', 'vi', '')]
+    [string] $Language = ''
 )
 
 Set-StrictMode -Version Latest
@@ -12,6 +14,7 @@ $ResolvedWorkspace = (Resolve-Path -LiteralPath $WorkspaceRoot).Path
 $VscodeDir = Join-Path $ResolvedWorkspace '.vscode'
 $TasksPath = Join-Path $VscodeDir 'tasks.json'
 $ExtensionsPath = Join-Path $VscodeDir 'extensions.json'
+$SettingsPath = Join-Path $VscodeDir 'settings.json'
 $ProjectHandoffTest = Join-Path $ResolvedWorkspace 'scripts\test-ai-loop.ps1'
 
 function New-EmptyDocument {
@@ -250,5 +253,20 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
 $extensionsJson = $extensionsDocument | ConvertTo-Json -Depth 4
 [System.IO.File]::WriteAllText($ExtensionsPath, $extensionsJson + [Environment]::NewLine, $utf8NoBom)
+
+if ($Language -eq 'vi' -or $Language -eq 'en') {
+    $settingsDoc = [ordered]@{}
+    if (Test-Path -LiteralPath $SettingsPath) {
+        try {
+            $settingsDoc = Get-Content -Raw $SettingsPath | ConvertFrom-Json -AsHashtable
+        } catch {
+            $settingsDoc = [ordered]@{}
+        }
+    }
+    $settingsDoc['aihandoff.language'] = $Language
+    $settingsJson = $settingsDoc | ConvertTo-Json -Depth 4
+    [System.IO.File]::WriteAllText($SettingsPath, $settingsJson + [Environment]::NewLine, $utf8NoBom)
+    Write-Host "Set aihandoff.language = $Language in $SettingsPath"
+}
 
 Write-Host "Installed AIHandOff VS Code tasks to $TasksPath"

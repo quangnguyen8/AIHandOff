@@ -116,7 +116,7 @@ Assert-Match $extensionsText 'aihandoff.aihandoff-bridge' 'Installer should reco
 Set-Content -Path (Join-Path $TempWorkspace '.ai-handoff\state.json') -Value '{ "phase": "review_done" }' -Encoding utf8
 Set-Content -Path (Join-Path $TempWorkspace '.ai-handoff\plan.md') -Value "# Demo plan" -Encoding utf8
 
-$handoffOutput = & $HandoffViewer -WorkspaceRoot $TempWorkspace
+$handoffOutput = & $HandoffViewer -WorkspaceRoot $TempWorkspace -Language en
 $handoffText = $handoffOutput -join "`n"
 Assert-Match $handoffText 'AIHandOff context for' 'Handoff viewer should show workspace heading.'
 Assert-Match $handoffText 'Phase: review_done' 'Handoff viewer should show the current phase.'

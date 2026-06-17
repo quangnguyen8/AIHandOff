@@ -99,4 +99,42 @@ function includesAll(text, parts) {
   ]);
 }
 
+{
+  const result = buildContinuation({ phase: 'code_done' }, null, 'vi');
+  assert.strictEqual(result.targetRole, 'review');
+  assert.ok(result.prompt.includes('tiếp tục'));
+  assert.ok(result.prompt.includes('git diff'));
+}
+
+{
+  const result = buildContinuation({ phase: 'planned' }, null, 'vi');
+  assert.strictEqual(result.targetRole, 'code');
+  assert.ok(result.prompt.includes('tiếp tục'));
+  assert.ok(result.prompt.includes('triển khai'));
+}
+
+{
+  const result = buildRoleSpec('plan', 'vi');
+  assert.ok(result.prompt.includes('tiếp tục'));
+  assert.ok(result.prompt.includes('kế hoạch'));
+}
+
+{
+  const result = buildRoleSpec('code', 'vi');
+  assert.ok(result.prompt.includes('tiếp tục'));
+  assert.ok(result.prompt.includes('triển khai'));
+}
+
+{
+  const result = buildRoleSpec('review', 'vi');
+  assert.ok(result.prompt.includes('tiếp tục'));
+  assert.ok(result.prompt.includes('nhận xét'));
+}
+
+{
+  const result = buildContinuation({ phase: 'approved' }, null, 'vi');
+  assert.strictEqual(result.targetRole, null);
+  assert.ok(result.prompt.includes('approved'));
+}
+
 console.log('PASS prompt router');

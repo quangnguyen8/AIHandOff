@@ -1,7 +1,9 @@
 param(
     [string] $WorkspaceRoot = (Get-Location).Path,
     [switch] $SkipStarterFiles,
-    [switch] $SkipBridge
+    [switch] $SkipBridge,
+    [ValidateSet('en', 'vi', '')]
+    [string] $Language = ''
 )
 
 Set-StrictMode -Version Latest
@@ -17,7 +19,11 @@ if (-not (Test-Path -LiteralPath $Installer)) {
 
 $ResolvedWorkspace = (Resolve-Path -LiteralPath $WorkspaceRoot).Path
 
-& $Installer -WorkspaceRoot $ResolvedWorkspace
+if ([string]::IsNullOrWhiteSpace($Language)) {
+    & $Installer -WorkspaceRoot $ResolvedWorkspace
+} else {
+    & $Installer -WorkspaceRoot $ResolvedWorkspace -Language $Language
+}
 
 if (-not $SkipBridge) {
     & $BridgeInstaller
@@ -71,10 +77,20 @@ if (-not $SkipStarterFiles) {
     }
 }
 
-Write-Host ''
-Write-Host 'AIHandOff is ready for this workspace.'
-Write-Host 'Next steps:'
-Write-Host '  1. Open VS Code in the target project.'
-Write-Host '  2. Run "AIHandOff: Start Plan", "AIHandOff: Start Code", or "AIHandOff: Start Review".'
-Write-Host '  3. Run "AIHandOff: Continue In Existing Terminal" to send the next prompt into an already-open terminal.'
-Write-Host '  4. Run "AIHandOff: Open Handoff" or "AIHandOff: Handoff Next" to inspect the local handoff state.'
+if ($Language -eq 'vi') {
+    Write-Host ''
+    Write-Host 'AIHandOff đã sẵn sàng cho workspace này.'
+    Write-Host 'Các bước tiếp theo:'
+    Write-Host '  1. Mở VS Code trong dự án đích.'
+    Write-Host '  2. Chạy "AIHandOff: Start Plan", "AIHandOff: Start Code", hoặc "AIHandOff: Start Review".'
+    Write-Host '  3. Chạy "AIHandOff: Continue In Existing Terminal" để gửi prompt tiếp theo vào terminal đang mở.'
+    Write-Host '  4. Chạy "AIHandOff: Open Handoff" hoặc "AIHandOff: Handoff Next" để xem trạng thái handoff.'
+} else {
+    Write-Host ''
+    Write-Host 'AIHandOff is ready for this workspace.'
+    Write-Host 'Next steps:'
+    Write-Host '  1. Open VS Code in the target project.'
+    Write-Host '  2. Run "AIHandOff: Start Plan", "AIHandOff: Start Code", or "AIHandOff: Start Review".'
+    Write-Host '  3. Run "AIHandOff: Continue In Existing Terminal" to send the next prompt into an already-open terminal.'
+    Write-Host '  4. Run "AIHandOff: Open Handoff" or "AIHandOff: Handoff Next" to inspect the local handoff state.'
+}
